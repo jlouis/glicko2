@@ -13,25 +13,23 @@ const (
 	ε       = 0.000001 // When to stop seeking a more precise result
 )
 
-type PlayerName struct {
-	Id	string // Players Id
-	M	string // The map the player is playing on
+// The Opponent interface is used to define opponents in a tournament. It is given as a slice to the
+// ranker and every element in the slice is treated as a game that was played in the tournament.
+// The interface must return the rating via R(); the rating deviance via RD() and the current σ value via
+// Sigma(). The value SJ() encodes the outcome of the match. If the player for which we rank won the
+// match, return 1.0. If the player lost, return 0.0. If the match was a draw, return 0.5. Note that Glicko2
+// is not really strong and handling draws.
+type Opponent interface {
+	R()	float64
+	RD() float64
+	Sigma() float64
+	SJ() float64
 }
 
-type Player struct {
-	Id        PlayerName  // Player Identification
-	Name      string  // Player name
-	R         float64 // Player ranking
-	Rd        float64 // Ranking deviation
-	Sigma     float64 // Volatility
-	Active	bool // Is the player currently active?
-}
-
-type Opponent struct {
-	Idx	int	// Player index
-	Sj float64 // Match score
-}
-
+// Internal opponent structure used to store some commonly used calculations
+// TODO: Get rid of the memory allocations and simply compute the values when they
+// are needed. It is not nearly worth it to build up garbage for something which could
+// be calculated on the fly when needed instead.
 type opp struct {
 	muj   float64
 	phij  float64
@@ -69,17 +67,18 @@ func e(mu float64, muj float64, phij float64) float64 {
 	return (1 / (1 + math.Exp(-g(phij)*(mu-muj))))
 }
 
-
-func scaleOpponents(mu float64, os []Opponent, players []Player) (res []opp) {
+// scaleOpponents processes the opponents and returns a new slice with the internal opponent structure
+func scaleOpponents(mu float64, os []Opponent) (res []opp) {
 	res = make([]opp, len(os))
 	for i, o := range os {
-		muj, phij := scale(players[o.Idx].R, players[o.Idx].Rd)
-		res[i] = opp{muj, phij, g(phij), e(mu, muj, phij), o.Sj}
+		muj, phij := scale(o.R(), o.RD())
+		res[i] = opp{muj, phij, g(phij), e(mu, muj, phij), o.SJ()}
 	}
 
 	return res
 }
 
+// updateRating computes the new updated rating based on the opponents
 func updateRating(sopp []opp) float64 {
 	s := 0.0
 	for _, o := range sopp {
@@ -89,6 +88,7 @@ func updateRating(sopp []opp) float64 {
 	return 1 / s
 }
 
+// computeDelta is part of the deviation and volatility update
 func computeDelta(v float64, sopp []opp) float64 {
 	s := 0.0
 	for _, o := range sopp {
@@ -98,6 +98,7 @@ func computeDelta(v float64, sopp []opp) float64 {
 	return v * s
 }
 
+// volK is part of the volatility update
 func volK(f func(float64) float64, a float64, tau float64) float64 {
 	k := 0.0
 	c := a - k*math.Sqrt(tau*tau)
@@ -113,6 +114,8 @@ func volK(f func(float64) float64, a float64, tau float64) float64 {
 	return c
 }
 
+// sign returns the sign of a float64 value
+// returns 1.0 for positive, -1.0 for negative and 0 for 0.
 func sign(x float64) float64 {
 	if x < 0 {
 		return -1.0
@@ -123,6 +126,14 @@ func sign(x float64) float64 {
 	}
 }
 
+// computeVolatility computes the next volatility for the player
+// The algorithm used here deviates from the Glicko2 paper. In the code below, we construct a function, f,
+// and the goal is to find a root of this function. Originally, the paper used a Newton-Rhapson method, but
+// this often leads to numerical instability and infinite cycling. The Glicko2 paper suggests Illinois method
+// as a solution. But we have implemented Ridder's method here instead. It often completes in fewer iterations
+// and the author has seen no inifinite cycles.
+//
+// If an infinite cycle happens, it is interesting and the code will panic.
 func computeVolatility(sigma float64, phi float64, v float64, delta float64, tau float64) float64 {
 	a := math.Log(sigma * sigma)
 	phi2 := phi * phi
@@ -173,10 +184,12 @@ func computeVolatility(sigma float64, phi float64, v float64, delta float64, tau
 	panic("Exceeded iterations")
 }
 
+// phiStar returns another component of the glicko ranking
 func phiStar(sigmap float64, phi float64) float64 {
 	return math.Sqrt(phi*phi + sigmap*sigmap)
 }
 
+// newRating returns the new rating of the player
 func newRating(phis float64, mu float64, v float64, sopp []opp) (float64, float64) {
 	phip := 1 / math.Sqrt(
 		(1/(phis*phis))+(1/v))
@@ -189,10 +202,13 @@ func newRating(phis float64, mu float64, v float64, sopp []opp) (float64, float6
 	return mup, phip
 }
 
-
-func Rank(r, rd, sigma float64, opponents []Opponent, players []Player, tau float64) (nr, nrd, nsigma float64) {
+// Rank ranks a player given a list of opponents.
+// In order to rank a player, you must supply the rating r, the rating deviance rd and the volatility, sigma (σ). You must also supply a list
+// of opponents as a []Opponent. And you must supply the configuration parameter tau (τ)
+// Good values of tau are between 0.3 and 1.2. You will have to tune your data set to find a good tau by running a prediction algorithm.
+func Rank(r, rd, sigma float64, opponents []Opponent, tau float64) (nr, nrd, nsigma float64) {
 	mu, phi := scale(r, rd)
-	sopps := scaleOpponents(mu, opponents, players)
+	sopps := scaleOpponents(mu, opponents)
 	v := updateRating(sopps)
 	delta := computeDelta(v, sopps)
 

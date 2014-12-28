@@ -9,6 +9,36 @@ var (
 	epsilon = 0.00000001
 )
 
+type testPlayer struct {
+	r	float64
+	rd	float64
+	sigma	float64
+	outcome float64
+}
+
+func (p testPlayer) R() float64 {
+	return p.r
+}
+
+func (p testPlayer) RD() float64 {
+	return p.rd
+}
+
+func (p testPlayer) Sigma() float64 {
+	return p.sigma
+}
+
+func (p testPlayer) SJ() float64 {
+	return p.outcome
+}
+
+var (
+	defaultOpponents = []Opponent{
+		testPlayer{1400, 30, 0.06, 1},
+		testPlayer{1550, 100, 0.06, 0},
+		testPlayer{1700, 300, 0.06, 0}}
+)
+
 func TestScale(t *testing.T) {
 	const r, mu, rd, phi = 1500.0, 0.0, 200.0, 1.1512924985234674
 	x, y := scale(r, rd)
@@ -24,20 +54,7 @@ func TestScale(t *testing.T) {
 
 func TestScaleOpponents(t *testing.T) {
 	mu := 0.0
-        p1 := PlayerName{"1", "1"}
-        p2 := PlayerName{"2", "1"}
-        p3 := PlayerName{"3", "1"}
-
-	players := []Player{
-		Player{p1, "1", 1400, 30, 0.06, true},
-		Player{p2, "2", 1550, 100, 0.06, true},
-		Player{p3, "3", 1700, 300, 0.06, true}}
-	os := []Opponent{
-		Opponent{0, 1},
-		Opponent{1, 0},
-		Opponent{2, 0}}
-
-	scaled := scaleOpponents(mu, os, players)
+	scaled := scaleOpponents(mu, defaultOpponents)
 
 	if scaled[0].muj != -0.5756462492617337 ||
 		scaled[0].phij != 0.1726938747785201 ||
@@ -66,18 +83,7 @@ func TestScaleOpponents(t *testing.T) {
 
 func TestUpdateRating(t *testing.T) {
 	const expect, mu = 1.7789770897239976, 0.0
-        p1 := PlayerName{"1", "1"}
-        p2 := PlayerName{"2", "1"}
-        p3 := PlayerName{"3", "1"}
-	players := []Player{
-		Player{p1, "1", 1400, 30, 0.06, true},
-		Player{p2, "2", 1550, 100, 0.06, true},
-		Player{p3, "3", 1700, 300, 0.06, true}}
-	os := []Opponent{
-		Opponent{0, 1},
-		Opponent{1, 0},
-		Opponent{2, 0}}
-	scaled := scaleOpponents(mu, os, players)
+	scaled := scaleOpponents(mu, defaultOpponents)
 
 	v := updateRating(scaled)
 
@@ -88,19 +94,7 @@ func TestUpdateRating(t *testing.T) {
 
 func TestComputeDelta(t *testing.T) {
 	const expect, mu, v = -0.4839332609836549, 0.0, 1.7789770897239976
-        p1 := PlayerName{"1", "1"}
-        p2 := PlayerName{"2", "1"}
-        p3 := PlayerName{"3", "1"}
-	players := []Player{
-		Player{p1, "1", 1400, 30, 0.06, true},
-		Player{p2, "2", 1550, 100, 0.06, true},
-		Player{p3, "3", 1700, 300, 0.06, true}}
-	os := []Opponent{
-		Opponent{0, 1},
-		Opponent{1, 0},
-		Opponent{2, 0}}
-
-	scaled := scaleOpponents(mu, os, players)
+	scaled := scaleOpponents(mu, defaultOpponents)
 
 	delta := computeDelta(v, scaled)
 
@@ -131,21 +125,7 @@ func TestPhiStar(t *testing.T) {
 
 func TestNewRating(t *testing.T) {
 	const phistar, mu, v = 1.1528546895801364, 0.0, 1.7789770897239976
-
-        p1 := PlayerName{"1", "1"}
-        p2 := PlayerName{"2", "1"}
-        p3 := PlayerName{"3", "1"}
-	players := []Player{
-		Player{p1, "1", 1400, 30, 0.06, true},
-		Player{p2, "2", 1550, 100, 0.06, true},
-		Player{p3, "3", 1700, 300, 0.06, true}}
-
-	os := []Opponent{
-		Opponent{0, 1},
-		Opponent{1, 0},
-		Opponent{2, 0}}
-
-	scaled := scaleOpponents(mu, os, players)
+	scaled := scaleOpponents(mu, defaultOpponents)
 
 	mup, phip := newRating(phistar, mu, v, scaled)
 
@@ -174,21 +154,9 @@ func TestUnscale(t *testing.T) {
 }
 
 func BenchmarkRate(b *testing.B) {
-        p1 := PlayerName{"1", "1"}
-        p2 := PlayerName{"2", "1"}
-        p3 := PlayerName{"3", "1"}
-	players := []Player{
-		Player{p1, "1", 1400, 30, 0.06, true},
-		Player{p2, "2", 1550, 100, 0.06, true},
-		Player{p3, "3", 1700, 300, 0.06, true}}
-	os := []Opponent{
-		Opponent{0, 1},
-		Opponent{1, 0},
-		Opponent{2, 0}}
-
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		Rank(1500, 200, 0.06, os, players, 0.5)
+		Rank(1500, 200, 0.06, defaultOpponents, 0.5)
 	}
 }
 
