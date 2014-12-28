@@ -1,6 +1,12 @@
 // Package glicko2 implements the Glicko 2 ranking system. It defines
 // a method which can compute the ranking of a player, given plays
 // against opponents for a tournament.
+//
+// The code follows the Glicko2 paper quite precisely, except that it uses Ridder's method
+// for finding roots. It does a bit of allocation, but in my tests it is by far the fastest code among
+// solutions in Erlang, Go and OCaml.
+// There are numerous places of low-hanging fruit, should the code prove to run too slowly.
+
 package glicko2
 
 import (
@@ -20,7 +26,7 @@ const (
 // match, return 1.0. If the player lost, return 0.0. If the match was a draw, return 0.5. Note that Glicko2
 // is not really strong and handling draws.
 type Opponent interface {
-	R()	float64
+	R() float64
 	RD() float64
 	Sigma() float64
 	SJ() float64
@@ -147,7 +153,7 @@ func computeVolatility(sigma float64, phi float64, v float64, delta float64, tau
 	}
 
 	var b float64
-	if delta*delta > phi*phi + v {
+	if delta*delta > phi*phi+v {
 		b = math.Log(delta*delta - phi*phi - v)
 	} else {
 		b = volK(f, a, tau)
@@ -157,28 +163,29 @@ func computeVolatility(sigma float64, phi float64, v float64, delta float64, tau
 	fb := f(b)
 
 	var c, fc, d, fd float64
-	for i := 100; i > 0 ; i-- {
+	for i := 100; i > 0; i-- {
 		if math.Abs(b-a) <= ε {
 			return math.Exp(a / 2)
-		} else {
-			c = (a + b) * 0.5
-			fc = f(c)
-			d = c + (c-a)*(sign(fa-fb)*fc)/math.Sqrt(fc*fc-fa*fb)
-			fd = f(d)
-
-			if sign(fd) != sign(fc) {
-				a = c
-				b = d
-				fa = fc
-				fb = fd
-			} else if sign(fd) != sign(fa) {
-				b = d
-				fb = fd
-			} else {
-				a = d
-				fa = fd
-			}
 		}
+
+		c = (a + b) * 0.5
+		fc = f(c)
+		d = c + (c-a)*(sign(fa-fb)*fc)/math.Sqrt(fc*fc-fa*fb)
+		fd = f(d)
+
+		if sign(fd) != sign(fc) {
+			a = c
+			b = d
+			fa = fc
+			fb = fd
+		} else if sign(fd) != sign(fa) {
+			b = d
+			fb = fd
+		} else {
+			a = d
+			fa = fd
+		}
+
 	}
 
 	panic("Exceeded iterations")

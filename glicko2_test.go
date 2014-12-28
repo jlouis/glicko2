@@ -10,9 +10,9 @@ var (
 )
 
 type testPlayer struct {
-	r	float64
-	rd	float64
-	sigma	float64
+	r       float64
+	rd      float64
+	sigma   float64
 	outcome float64
 }
 
@@ -159,4 +159,3 @@ func BenchmarkRate(b *testing.B) {
 		Rank(1500, 200, 0.06, defaultOpponents, 0.5)
 	}
 }
-
