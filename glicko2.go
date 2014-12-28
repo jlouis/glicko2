@@ -213,6 +213,7 @@ func newRating(phis float64, mu float64, v float64, sopp []opp) (float64, float6
 // In order to rank a player, you must supply the rating r, the rating deviance rd and the volatility, sigma (σ). You must also supply a list
 // of opponents as a []Opponent. And you must supply the configuration parameter tau (τ)
 // Good values of tau are between 0.3 and 1.2. You will have to tune your data set to find a good tau by running a prediction algorithm.
+// The function returns three values, nr, nrd, nsigma for the new rating, rating deviation and sigma/volatility value respectively.
 func Rank(r, rd, sigma float64, opponents []Opponent, tau float64) (nr, nrd, nsigma float64) {
 	mu, phi := scale(r, rd)
 	sopps := scaleOpponents(mu, opponents)
