@@ -227,3 +227,13 @@ func Rank(r, rd, sigma float64, opponents []Opponent, tau float64) (nr, nrd, nsi
 
 	return nr, nrd, nsigma
 }
+
+// Skip is used when a player skips a tournament.
+// In the case where a player skips a tournament, we will keep the rating, r, and the volatility, sigma, of the player the same, but the rating deviation, rd, will
+// change. This function returns the new rating deviation of the player
+func Skip(r, rd, sigma float64) float64 {
+	mu, phi := scale(r, rd)
+	phi = phiStar(sigma, phi)
+	_, phi = unscale(mu, phi)
+	return phi
+}
