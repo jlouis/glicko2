@@ -6,7 +6,6 @@
 // for finding roots. It does a bit of allocation, but in my tests it is by far the fastest code among
 // solutions in Erlang, Go and OCaml.
 // There are numerous places of low-hanging fruit, should the code prove to run too slowly.
-
 package glicko2
 
 import (
